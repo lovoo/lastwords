@@ -3,11 +3,11 @@
 # lastwords
 _lastwords_ is a little library written purely in Kotlin which notifies you when your app is terminated - that is all activities are either finishing or have been destroyed.
 
-# A short definition of a _finished_ app
+## A short definition of a _finished_ app
 For _lastwords_ a finished app is an app whose activities are all either _finishing_ or _destroyed_. So yes, we are excluding things like services here.
 This proved to be a rather flexible definition for most use cases. If you stumble upon a use case which isn't covered by this feel free to create an issue and we'll discuss.
 
-# Import
+## Import
 _lastwords_ is hosted on JitPack. Therefore you can simply import it by adding
 
 ```groovy
@@ -29,7 +29,7 @@ dependencies {
 }
 ```
 
-# Usage
+## Usage
 Using _lastwords_ is very simple. In your Application class add the following initialisation code to the `onCreate()` method:
 
  ```kotlin
