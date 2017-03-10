@@ -25,7 +25,7 @@ Then add this to you app's `build.gradle`:
 
 ```groovy
 dependencies {
-    compile 'com.lovoo.lastwords:lastwords:1.0.0'
+    compile 'com.github.lovoo:lastwords:1.0.0'
 }
 ```
 
