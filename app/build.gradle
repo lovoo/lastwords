@@ -37,6 +37,5 @@ dependencies {
     compile project(':library')
 }
 repositories {
-    mavenLocal()
     jcenter()
 }
