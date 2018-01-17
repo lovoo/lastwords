@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import com.lovoo.lastwords.util.CancelableRunnable
 import java.lang.ref.WeakReference
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -24,10 +25,10 @@ object LastWords : Application.ActivityLifecycleCallbacks {
     /**
      * This list is NOT thread safe and should just be accessed from the main thread.
      */
-    private val activityList = hashMapOf<Int, WeakReference<Activity>>()
-    private var isInit = false
+    private val activityList = ConcurrentHashMap<Int, WeakReference<Activity>>()
     private val listeners = mutableSetOf<Listener>()
     private var finishCheckRunnable: CancelableRunnable? = null
+    private var listenerLock = Object()
 
     /**
      * @return whether there are no non-finishing, non-destroyed activities at the moment.
@@ -51,11 +52,6 @@ object LastWords : Application.ActivityLifecycleCallbacks {
      * @throws [IllegalStateException] if LastWords has already been initialised.
      */
     fun init(application: Application) {
-        if (isInit) {
-            throw IllegalStateException("LastWords has already been initialised. Best call this " +
-                    "method in Application.onCreate().")
-        }
-
         application.registerActivityLifecycleCallbacks(this)
     }
 
@@ -65,7 +61,7 @@ object LastWords : Application.ActivityLifecycleCallbacks {
      * @param listener a [Listener]
      */
     fun register(listener: Listener) {
-        listeners.add(listener)
+        synchronized(listenerLock, { listeners.add(listener) })
     }
 
     /**
@@ -74,7 +70,7 @@ object LastWords : Application.ActivityLifecycleCallbacks {
      * @param listener a [Listener]
      */
     fun unregister(listener: Listener) {
-        listeners.remove(listener)
+        synchronized(listenerLock, { listeners.remove(listener) })
     }
 
     override fun onActivityCreated(activity: Activity?, savedInstanceState: Bundle?) {
@@ -114,7 +110,7 @@ object LastWords : Application.ActivityLifecycleCallbacks {
                     if (needToMarkAsFinished()) {
                         activityList.clear()
                         isAppFinished.set(true)
-                        listeners.forEach { it.onAppFinished() }
+                        synchronized(listenerLock, { listeners.forEach { it.onAppFinished() } })
                     }
                 }
             }.apply {
@@ -123,12 +119,13 @@ object LastWords : Application.ActivityLifecycleCallbacks {
         }
     }
 
-    private fun needToMarkAsFinished() =
-            !isAppFinished.get()
-                    && activityList.entries.apply {
-                removeAll {
-                    val activity = it.value.get()
-                    activity == null || activity.isFinishing || activity.isDestroyed
-                }
-            }.size == 0
+    private fun needToMarkAsFinished(): Boolean {
+        return !isAppFinished.get() && activityList.entries.apply {
+            removeAll {
+                val activity = it.value.get()
+                activity == null || activity.isFinishing || activity.isDestroyed
+            }
+        }.size == 0
+    }
+
 }
