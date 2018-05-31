@@ -4,8 +4,7 @@ import android.app.Application
 import android.widget.Toast
 import com.lovoo.lastwords.LastWords
 
-class Application : Application() {
-
+class LastWordsApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
@@ -13,7 +12,7 @@ class Application : Application() {
 
         LastWords.register(object : LastWords.Listener {
             override fun onAppFinished() {
-                Toast.makeText(this@Application, "App finished", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@LastWordsApplication, "App finished", Toast.LENGTH_SHORT).show()
             }
         })
     }
