@@ -2,6 +2,7 @@ package com.lovoo.lastwords
 
 import android.app.Activity
 import android.app.Application
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -28,7 +29,11 @@ object LastWords : Application.ActivityLifecycleCallbacks {
     private val activityList = ConcurrentHashMap<Int, WeakReference<Activity>>()
     private val listeners = mutableSetOf<Listener>()
     private var finishCheckRunnable: CancelableRunnable? = null
-    private var listenerLock = Object()
+
+    private val activityLock = Object()
+    private val listenerLock = Object()
+
+    private var delay = WAIT_FOR_NEXT_ACTIVITY_MS
 
     /**
      * @return whether there are no non-finishing, non-destroyed activities at the moment.
@@ -56,6 +61,37 @@ object LastWords : Application.ActivityLifecycleCallbacks {
     }
 
     /**
+     * Finish all activities and end the application process.
+     * Do not trigger this when you have other tasks running, like write database or filesystem.
+     *
+     * @param processFinishDelay time in ms to wait until the process is killed when last activity finished, default 5000ms
+     */
+    fun finishApp(processFinishDelay: Long = WAIT_FOR_NEXT_ACTIVITY_MS) {
+        register(object: Listener {
+            override fun onAppFinished() {
+                unregister(this)
+                finishApp()
+            }
+        })
+
+        var list: List<Activity> = emptyList()
+        synchronized(activityLock, {
+            list = activityList.map { it.value.get() }.filter { isActivityAlive(it) } as List<Activity>
+        })
+
+        if (list.isEmpty()) {
+            isAppFinished.set(true)
+            // no valid activity found so shutdown
+            System.exit(0)
+            android.os.Process.killProcess(android.os.Process.myPid())
+            return
+        }
+
+        delay = processFinishDelay
+        list.forEach { it.finish() }
+    }
+
+    /**
      * Registers a listener to be notified when the app has finished.
      *
      * @param listener a [Listener]
@@ -75,7 +111,9 @@ object LastWords : Application.ActivityLifecycleCallbacks {
 
     override fun onActivityCreated(activity: Activity?, savedInstanceState: Bundle?) {
         isAppFinished.set(false)
-        activity?.let { activityList.put(activity.hashCode(), WeakReference(activity)) }
+        synchronized(activityLock, {
+            activity?.let { activityList.put(activity.hashCode(), WeakReference(activity)) }
+        })
     }
 
     override fun onActivityStarted(p0: Activity?) {
@@ -108,24 +146,27 @@ object LastWords : Application.ActivityLifecycleCallbacks {
             finishCheckRunnable = object : CancelableRunnable() {
                 override fun runCancelable() {
                     if (needToMarkAsFinished()) {
-                        activityList.clear()
+                        synchronized(activityLock, { activityList.clear() })
                         isAppFinished.set(true)
                         synchronized(listenerLock, { listeners.forEach { it.onAppFinished() } })
                     }
                 }
             }.apply {
-                Handler(Looper.getMainLooper()).postDelayed(this, WAIT_FOR_NEXT_ACTIVITY_MS)
+                Handler(Looper.getMainLooper()).postDelayed(this, delay)
             }
         }
     }
 
     private fun needToMarkAsFinished(): Boolean {
-        return !isAppFinished.get() && activityList.entries.apply {
-            removeAll {
-                val activity = it.value.get()
-                activity == null || activity.isFinishing || activity.isDestroyed
-            }
-        }.size == 0
+        synchronized(activityLock, {
+            return !isAppFinished.get() && activityList.entries.apply {
+                removeAll {
+                    !isActivityAlive(it.value.get())
+                }
+            }.size == 0
+        })
     }
+
+    private fun isActivityAlive(activity: Activity?) = activity != null && !activity.isFinishing && !activity.isDestroyed
 
 }
