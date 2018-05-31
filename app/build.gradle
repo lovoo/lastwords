@@ -8,7 +8,7 @@ android {
         applicationId "com.lovoo.lastwords.app"
         minSdkVersion 17
         targetSdkVersion 27
-        versionCode 100
+        versionCode 1010
         versionName "1.1.0"
     }
 

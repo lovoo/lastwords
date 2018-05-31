@@ -61,8 +61,8 @@ If you want to kill your app process with _lastwords_ you can use:
  ```kotlin
 LastWords.finishApp(killDelay)
  ```
- This will finish all Activities, then wait for the given delay and kill your process (if no other Activity is started meanwhile).
- An example would be to notify the user that changes take place after App restart and you show him an option to close the app.
+ This will finish all Activities, then wait for the given delay and kill your process (if no other Activity is started in the meantime).
+ An example would be to notify the user that changes took place after App restart and you show him an option to close the app.
  But do NOT call this if you have running tasks, like Database or Filesystem writing!!!
 
 And that's it. Keep in mind that the system may kill the app process at any point in time (especially as it is effectively backgrounded now), so it's not _guaranteed_ that the code in the listener is executed - but what is guaranteed on our beloved Android anyway? ;)
